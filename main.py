@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Depends
+from fastapi import FastAPI, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 import schemas
@@ -60,21 +60,18 @@ def get_job(job_id: int, db: Session = Depends(get_db)):
     job = db.query(models.Job).filter(models.Job.id == job_id).first()
 
     if job is None:
-        return {"error": "Job not found"}
+        raise HTTPException(
+            status_code=404,
+            detail="Job not found"
+        )
 
     return job
-   
 
-    return {"error": "Job not found"}
-
-@app.post("/jobs")
-def create_job(
-    job: schemas.JobCreate,
-    db: Session = Depends(get_db)
-):
+@app.post("/jobs", status_code=status.HTTP_201_CREATED)
+def create_job(job: schemas.JobCreate, db: Session = Depends(get_db)):
     new_job = models.Job(
         company=job.company,
-        position=job.position,
+        role=job.role,
         status=job.status
     )
 
@@ -82,10 +79,7 @@ def create_job(
     db.commit()
     db.refresh(new_job)
 
-    return {
-        "message": "Job added successfully!",
-        "job": new_job
-    }
+    return new_job
 
 @app.put("/jobs/{job_id}")
 def update_job(
@@ -96,19 +90,19 @@ def update_job(
     job = db.query(models.Job).filter(models.Job.id == job_id).first()
 
     if job is None:
-        return {"error": "Job not found"}
+        raise HTTPException(
+            status_code=404,
+            detail="Job not found"
+        )
 
     job.company = updated_job.company
-    job.position = updated_job.position
+    job.role = updated_job.role
     job.status = updated_job.status
 
     db.commit()
     db.refresh(job)
 
-    return {
-        "message": "Job updated successfully!",
-        "job": job
-    }
+    return job
 
 @app.delete("/jobs/{job_id}")
 def delete_job(
@@ -118,11 +112,12 @@ def delete_job(
     job = db.query(models.Job).filter(models.Job.id == job_id).first()
 
     if job is None:
-        return {"error": "Job not found"}
+        raise HTTPException(
+            status_code=404,
+            detail="Job not found"
+        )
 
     db.delete(job)
     db.commit()
 
-    return {
-        "message": "Job deleted successfully!"
-    }
+    return {"message": "Job deleted successfully"}
