@@ -4,7 +4,7 @@ from database import engine
 
 Base = declarative_base()
 
-
+# Job table
 class Job(Base):
     __tablename__ = "jobs"
 
@@ -14,4 +14,14 @@ class Job(Base):
     status = Column(Text, nullable=False)
 
 
+# User table
+class User(Base):
+    __tablename__ = "users"
+
+    id = Column(Integer, primary_key=True)
+    username = Column(Text, unique=True, nullable=False)
+    password = Column(Text, nullable=False)
+
+
+# Create tables in the database
 Base.metadata.create_all(bind=engine)

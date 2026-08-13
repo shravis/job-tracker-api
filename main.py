@@ -1,13 +1,23 @@
 from fastapi import FastAPI, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
-import schemas
+import auth
 import models
+import schemas
 
 from database import SessionLocal
+from security import get_current_user
 
-app = FastAPI()
+app = FastAPI(
+    title="Job Tracker API",
+    description="A secure REST API for tracking job applications using FastAPI, PostgreSQL, SQLAlchemy, and JWT Authentication.",
+    version="1.0.0"
+)
 
+app.include_router(auth.router)
+
+
+# Create a database session
 def get_db():
     db = SessionLocal()
     try:
@@ -15,22 +25,29 @@ def get_db():
     finally:
         db.close()
 
+
+# Home endpoint
 @app.get("/")
 def home():
     return {"message": "Welcome to Job Tracker API"}
 
+
+# About endpoint
 @app.get("/about")
 def about():
     return {"developer": "Shravya"}
 
-@app.get("/jobs")
+
+# Get all jobs
+@app.get("/jobs", response_model=list[schemas.JobResponse])
 def get_jobs(
     company: str = None,
     status: str = None,
     sort: str = None,
     skip: int = 0,
     limit: int = 10,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: str = Depends(get_current_user)
 ):
     query = db.query(models.Job)
 
@@ -48,16 +65,22 @@ def get_jobs(
 
     elif sort == "id":
         query = query.order_by(models.Job.id)
-    
+
     query = query.offset(skip).limit(limit)
 
-    jobs = query.all()
+    return query.all()
 
-    return jobs
-    
-@app.get("/jobs/{job_id}")
-def get_job(job_id: int, db: Session = Depends(get_db)):
-    job = db.query(models.Job).filter(models.Job.id == job_id).first()
+
+# Get a single job
+@app.get("/jobs/{job_id}", response_model=schemas.JobResponse)
+def get_job(
+    job_id: int,
+    db: Session = Depends(get_db),
+    current_user: str = Depends(get_current_user)
+):
+    job = db.query(models.Job).filter(
+        models.Job.id == job_id
+    ).first()
 
     if job is None:
         raise HTTPException(
@@ -67,11 +90,17 @@ def get_job(job_id: int, db: Session = Depends(get_db)):
 
     return job
 
+
+# Create a new job
 @app.post("/jobs", status_code=status.HTTP_201_CREATED)
-def create_job(job: schemas.JobCreate, db: Session = Depends(get_db)):
+def create_job(
+    job: schemas.JobCreate,
+    db: Session = Depends(get_db),
+    current_user: str = Depends(get_current_user)
+):
     new_job = models.Job(
         company=job.company,
-        role=job.role,
+        position=job.position,
         status=job.status
     )
 
@@ -81,13 +110,18 @@ def create_job(job: schemas.JobCreate, db: Session = Depends(get_db)):
 
     return new_job
 
+
+# Update a job
 @app.put("/jobs/{job_id}")
 def update_job(
     job_id: int,
     updated_job: schemas.JobCreate,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: str = Depends(get_current_user)
 ):
-    job = db.query(models.Job).filter(models.Job.id == job_id).first()
+    job = db.query(models.Job).filter(
+        models.Job.id == job_id
+    ).first()
 
     if job is None:
         raise HTTPException(
@@ -96,7 +130,7 @@ def update_job(
         )
 
     job.company = updated_job.company
-    job.role = updated_job.role
+    job.position = updated_job.position
     job.status = updated_job.status
 
     db.commit()
@@ -104,12 +138,17 @@ def update_job(
 
     return job
 
+
+# Delete a job
 @app.delete("/jobs/{job_id}")
 def delete_job(
     job_id: int,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: str = Depends(get_current_user)
 ):
-    job = db.query(models.Job).filter(models.Job.id == job_id).first()
+    job = db.query(models.Job).filter(
+        models.Job.id == job_id
+    ).first()
 
     if job is None:
         raise HTTPException(

@@ -1,10 +1,16 @@
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
+from dotenv import load_dotenv
+import os
 
-DATABASE_URL = "postgresql://postgres:Postgre%40123@localhost:5432/job_tracker"
+# Load environment variables from .env file
+load_dotenv()
+
+DATABASE_URL = os.getenv("DATABASE_URL")
 
 engine = create_engine(DATABASE_URL)
 
+# Create a database session for each request
 SessionLocal = sessionmaker(
     autocommit=False,
     autoflush=False,
