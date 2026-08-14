@@ -5,7 +5,7 @@ import auth
 import models
 import schemas
 
-from database import SessionLocal
+from database import get_db
 from security import get_current_user
 
 app = FastAPI(
@@ -15,15 +15,6 @@ app = FastAPI(
 )
 
 app.include_router(auth.router)
-
-
-# Create a database session
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
 
 
 # Home endpoint
@@ -47,9 +38,11 @@ def get_jobs(
     skip: int = 0,
     limit: int = 10,
     db: Session = Depends(get_db),
-    current_user: str = Depends(get_current_user)
+    current_user: models.User = Depends(get_current_user)
 ):
-    query = db.query(models.Job)
+    query = db.query(models.Job).filter(
+        models.Job.user_id == current_user.id
+    )
 
     if company:
         query = query.filter(models.Job.company == company)
@@ -76,10 +69,11 @@ def get_jobs(
 def get_job(
     job_id: int,
     db: Session = Depends(get_db),
-    current_user: str = Depends(get_current_user)
+    current_user: models.User = Depends(get_current_user)
 ):
     job = db.query(models.Job).filter(
-        models.Job.id == job_id
+        models.Job.id == job_id,
+        models.Job.user_id == current_user.id
     ).first()
 
     if job is None:
@@ -92,16 +86,17 @@ def get_job(
 
 
 # Create a new job
-@app.post("/jobs", status_code=status.HTTP_201_CREATED)
+@app.post("/jobs", response_model=schemas.JobResponse, status_code=status.HTTP_201_CREATED)
 def create_job(
     job: schemas.JobCreate,
     db: Session = Depends(get_db),
-    current_user: str = Depends(get_current_user)
+    current_user: models.User = Depends(get_current_user)
 ):
     new_job = models.Job(
         company=job.company,
         position=job.position,
-        status=job.status
+        status=job.status,
+        user_id=current_user.id
     )
 
     db.add(new_job)
@@ -112,15 +107,16 @@ def create_job(
 
 
 # Update a job
-@app.put("/jobs/{job_id}")
+@app.put("/jobs/{job_id}", response_model=schemas.JobResponse)
 def update_job(
     job_id: int,
     updated_job: schemas.JobCreate,
     db: Session = Depends(get_db),
-    current_user: str = Depends(get_current_user)
+    current_user: models.User = Depends(get_current_user)
 ):
     job = db.query(models.Job).filter(
-        models.Job.id == job_id
+        models.Job.id == job_id,
+        models.Job.user_id == current_user.id
     ).first()
 
     if job is None:
@@ -144,10 +140,11 @@ def update_job(
 def delete_job(
     job_id: int,
     db: Session = Depends(get_db),
-    current_user: str = Depends(get_current_user)
+    current_user: models.User = Depends(get_current_user)
 ):
     job = db.query(models.Job).filter(
-        models.Job.id == job_id
+        models.Job.id == job_id,
+        models.Job.user_id == current_user.id
     ).first()
 
     if job is None:
