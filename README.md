@@ -18,6 +18,32 @@ A secure RESTful API built using **FastAPI**, **PostgreSQL**, **SQLAlchemy**, an
 
 ---
 
+# Screenshots
+
+## Swagger Documentation
+
+![Swagger Home](images/swagger-home.png)
+
+---
+
+## User Registration
+
+![Register](images/register-success.png)
+
+---
+
+## User Login (JWT Authentication)
+
+![Login](images/login-success.png)
+
+---
+
+## Protected Jobs Endpoint
+
+![Jobs Endpoint](images/jobs-endpoint.png)
+
+---
+
 # Tech Stack
 
 - Python 3
