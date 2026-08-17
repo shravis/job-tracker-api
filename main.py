@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Depends, HTTPException, status
+from fastapi import FastAPI, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
 
 import auth
@@ -35,8 +35,8 @@ def get_jobs(
     company: str = None,
     status: str = None,
     sort: str = None,
-    skip: int = 0,
-    limit: int = 10,
+    skip: int = Query(0, ge=0),
+    limit: int = Query(10, ge=0, le=100),
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user)
 ):

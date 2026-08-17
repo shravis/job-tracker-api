@@ -1,11 +1,17 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, status, Request
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
+from sqlalchemy.exc import IntegrityError
 
 import models
 import schemas
 
-from database import SessionLocal
+from database import get_db
+from rate_limiter import (
+    is_rate_limited,
+    record_failed_attempt,
+    reset_attempts
+)
 from security import (
     hash_password,
     verify_password,
@@ -15,18 +21,10 @@ from security import (
 router = APIRouter()
 
 
-# Create a database session
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
-
-
 # Register a new user
-@router.post("/register")
+@router.post("/register", status_code=status.HTTP_201_CREATED)
 def register(
+    request: Request,
     user: schemas.UserCreate,
     db: Session = Depends(get_db)
 ):
@@ -46,8 +44,17 @@ def register(
     )
 
     db.add(new_user)
-    db.commit()
-    db.refresh(new_user)
+
+    try:
+        db.commit()
+        db.refresh(new_user)
+
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(
+            status_code=400,
+            detail="Username already exists"
+        )
 
     return {
         "message": "User registered successfully"
@@ -57,14 +64,19 @@ def register(
 # Login and generate JWT token
 @router.post("/login", response_model=schemas.Token)
 def login(
+    request: Request,
     form_data: OAuth2PasswordRequestForm = Depends(),
     db: Session = Depends(get_db)
 ):
+    # Check if this client is temporarily blocked
+    is_rate_limited(request)
+
     user = db.query(models.User).filter(
         models.User.username == form_data.username
     ).first()
 
     if not user:
+        record_failed_attempt(request)
         raise HTTPException(
             status_code=401,
             detail="Invalid username or password"
@@ -74,10 +86,14 @@ def login(
         form_data.password,
         user.password
     ):
+        record_failed_attempt(request)
         raise HTTPException(
             status_code=401,
             detail="Invalid username or password"
         )
+
+    # Successful login → clear failed attempts
+    reset_attempts(request)
 
     access_token = create_access_token(
         data={"sub": user.username}
