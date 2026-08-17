@@ -1,10 +1,20 @@
+from enum import Enum
 from pydantic import BaseModel, Field
+
+
+class JobStatus(str, Enum):
+    APPLIED = "Applied"
+    INTERVIEW = "Interview"
+    OFFER = "Offer"
+    ACCEPTED = "Accepted"
+    REJECTED = "Rejected"
+    WITHDRAWN = "Withdrawn"
 
 
 class JobCreate(BaseModel):
     company: str
     position: str
-    status: str
+    status: JobStatus
 
 
 class JobResponse(JobCreate):

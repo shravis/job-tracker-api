@@ -28,8 +28,11 @@ def register(
     user: schemas.UserCreate,
     db: Session = Depends(get_db)
 ):
+    # Normalize username
+    username = user.username.lower()
+
     existing_user = db.query(models.User).filter(
-        models.User.username == user.username
+        models.User.username == username
     ).first()
 
     if existing_user:
@@ -39,7 +42,7 @@ def register(
         )
 
     new_user = models.User(
-        username=user.username,
+        username=username,
         password=hash_password(user.password)
     )
 
@@ -71,8 +74,11 @@ def login(
     # Check if this client is temporarily blocked
     is_rate_limited(request)
 
+    # Normalize username
+    username = form_data.username.lower()
+
     user = db.query(models.User).filter(
-        models.User.username == form_data.username
+        models.User.username == username
     ).first()
 
     if not user:

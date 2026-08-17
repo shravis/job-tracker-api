@@ -45,10 +45,14 @@ def get_jobs(
     )
 
     if company:
-        query = query.filter(models.Job.company == company)
+        query = query.filter(
+        models.Job.company.ilike(f"%{company}%")
+    )
 
     if status:
-        query = query.filter(models.Job.status == status)
+        query = query.filter(
+        models.Job.status.ilike(f"%{status}%")
+    )
 
     if sort == "company":
         query = query.order_by(models.Job.company)
