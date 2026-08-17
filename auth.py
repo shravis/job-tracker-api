@@ -20,6 +20,9 @@ from security import (
 
 router = APIRouter()
 
+# Dummy bcrypt hash used to mitigate username timing attacks
+DUMMY_PASSWORD_HASH = hash_password("DummyPassword123!")
+
 
 # Register a new user
 @router.post("/register", status_code=status.HTTP_201_CREATED)
@@ -28,7 +31,6 @@ def register(
     user: schemas.UserCreate,
     db: Session = Depends(get_db)
 ):
-    # Normalize username
     username = user.username.lower()
 
     existing_user = db.query(models.User).filter(
@@ -71,10 +73,8 @@ def login(
     form_data: OAuth2PasswordRequestForm = Depends(),
     db: Session = Depends(get_db)
 ):
-    # Check if this client is temporarily blocked
     is_rate_limited(request)
 
-    # Normalize username
     username = form_data.username.lower()
 
     user = db.query(models.User).filter(
@@ -82,7 +82,14 @@ def login(
     ).first()
 
     if not user:
+        # Always perform a bcrypt verification to reduce timing differences
+        verify_password(
+            form_data.password,
+            DUMMY_PASSWORD_HASH
+        )
+
         record_failed_attempt(request)
+
         raise HTTPException(
             status_code=401,
             detail="Invalid username or password"
@@ -93,12 +100,12 @@ def login(
         user.password
     ):
         record_failed_attempt(request)
+
         raise HTTPException(
             status_code=401,
             detail="Invalid username or password"
         )
 
-    # Successful login → clear failed attempts
     reset_attempts(request)
 
     access_token = create_access_token(

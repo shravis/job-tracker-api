@@ -1,5 +1,6 @@
 from fastapi import FastAPI, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
+from sqlalchemy.exc import SQLAlchemyError
 
 import auth
 import models
@@ -46,13 +47,13 @@ def get_jobs(
 
     if company:
         query = query.filter(
-        models.Job.company.ilike(f"%{company}%")
-    )
+            models.Job.company.ilike(f"%{company}%")
+        )
 
     if status:
         query = query.filter(
-        models.Job.status.ilike(f"%{status}%")
-    )
+            models.Job.status.ilike(f"%{status}%")
+        )
 
     if sort == "company":
         query = query.order_by(models.Job.company)
@@ -61,6 +62,10 @@ def get_jobs(
         query = query.order_by(models.Job.status)
 
     elif sort == "id":
+        query = query.order_by(models.Job.id)
+
+    else:
+        # Default ordering for stable pagination
         query = query.order_by(models.Job.id)
 
     query = query.offset(skip).limit(limit)
@@ -90,7 +95,11 @@ def get_job(
 
 
 # Create a new job
-@app.post("/jobs", response_model=schemas.JobResponse, status_code=status.HTTP_201_CREATED)
+@app.post(
+    "/jobs",
+    response_model=schemas.JobResponse,
+    status_code=status.HTTP_201_CREATED
+)
 def create_job(
     job: schemas.JobCreate,
     db: Session = Depends(get_db),
@@ -104,8 +113,17 @@ def create_job(
     )
 
     db.add(new_job)
-    db.commit()
-    db.refresh(new_job)
+
+    try:
+        db.commit()
+        db.refresh(new_job)
+
+    except SQLAlchemyError:
+        db.rollback()
+        raise HTTPException(
+            status_code=500,
+            detail="Failed to create job."
+        )
 
     return new_job
 
@@ -133,8 +151,16 @@ def update_job(
     job.position = updated_job.position
     job.status = updated_job.status
 
-    db.commit()
-    db.refresh(job)
+    try:
+        db.commit()
+        db.refresh(job)
+
+    except SQLAlchemyError:
+        db.rollback()
+        raise HTTPException(
+            status_code=500,
+            detail="Failed to update job."
+        )
 
     return job
 
@@ -158,6 +184,15 @@ def delete_job(
         )
 
     db.delete(job)
-    db.commit()
+
+    try:
+        db.commit()
+
+    except SQLAlchemyError:
+        db.rollback()
+        raise HTTPException(
+            status_code=500,
+            detail="Failed to delete job."
+        )
 
     return {"message": "Job deleted successfully"}
