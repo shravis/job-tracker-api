@@ -1,4 +1,36 @@
+# Virtual Environment
 venv/
-__pycache__/
-*.pyc
+
+# Environment Variables
 .env
+
+# Python Cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Pytest
+.pytest_cache/
+
+# VS Code
+.vscode/
+
+# macOS
+.DS_Store
+
+# Coverage Reports
+.coverage
+htmlcov/
+
+# Logs
+*.log
+
+# Local Database (if using SQLite)
+*.db
+*.sqlite3
+
+# IDE Settings
+.idea/
+
+# OS Files
+Thumbs.db

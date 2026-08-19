@@ -1,24 +1,30 @@
 # 🚀 Job Tracker API
 
-A secure RESTful API built using **FastAPI**, **PostgreSQL**, **SQLAlchemy**, and **JWT Authentication** to help users manage and track job applications.
+A secure RESTful API for managing job applications, built using **FastAPI**, **PostgreSQL**, **SQLAlchemy**, **JWT Authentication**, **Alembic**, and **Pytest**.
 
 ---
 
-# Features
+# ✨ Features
 
 - User Registration
-- User Login using JWT Authentication
-- Password Hashing with bcrypt
-- Protected CRUD Operations
+- JWT Authentication
+- Password Hashing using bcrypt
+- User Authorization (Users can only access their own job applications)
+- Complete CRUD Operations
+- Partial Updates (PATCH)
 - Job Filtering
 - Job Sorting
 - Pagination
+- Health Check Endpoint
+- Automatic `created_at` & `updated_at` timestamps
+- Alembic Database Migrations
+- Automated API Testing using Pytest
 - PostgreSQL Database Integration
 - Interactive Swagger API Documentation
 
 ---
 
-# Screenshots
+# 📸 Screenshots
 
 ## Swagger Documentation
 
@@ -32,36 +38,71 @@ A secure RESTful API built using **FastAPI**, **PostgreSQL**, **SQLAlchemy**, an
 
 ---
 
-## User Login (JWT Authentication)
+## User Login
 
 ![Login](images/login-success.png)
 
 ---
 
-## Protected Jobs Endpoint
+## JWT Authorization
+
+![JWT Authorization](images/authorize-jwt.png)
+
+---
+
+## Get Jobs
 
 ![Jobs Endpoint](images/jobs-endpoint.png)
 
 ---
 
-# Tech Stack
+## Partial Update (PATCH)
 
-- Python 3
-- FastAPI
-- PostgreSQL
-- SQLAlchemy
-- Pydantic
-- JWT (python-jose)
-- Passlib (bcrypt)
-- Uvicorn
-- python-dotenv
+![Patch Job](images/patch-job.png)
 
 ---
 
-# Project Structure
+## Health Endpoint
 
-```
+![Health Endpoint](images/health-endpoint.png)
+
+---
+
+## Automated Testing
+
+![Pytest Results](images/pytest-results.png)
+
+---
+
+# 🛠 Tech Stack
+
+- Python 3.12
+- FastAPI
+- PostgreSQL
+- SQLAlchemy
+- Alembic
+- Pydantic
+- JWT (python-jose)
+- Passlib (bcrypt)
+- Pytest
+- python-dotenv
+- Uvicorn
+
+---
+
+# 📁 Project Structure
+
+```text
 JobTrackerAPI/
+│
+├── alembic/
+│   └── versions/
+│
+├── images/
+│
+├── tests/
+│   ├── conftest.py
+│   └── test_main.py
 │
 ├── auth.py
 ├── database.py
@@ -70,20 +111,24 @@ JobTrackerAPI/
 ├── schemas.py
 ├── security.py
 ├── requirements.txt
+├── alembic.ini
+├── README.md
+├── LICENSE
 ├── .env.example
-├── .gitignore
-└── README.md
+└── .gitignore
 ```
 
 ---
 
-# Installation
+# ⚙️ Installation
 
 ## 1. Clone the repository
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/job-tracker-api.git
+git clone git clone https://github.com/YOUR_USERNAME/job-tracker-api.git
+
 cd job-tracker-api
+
 ```
 
 ---
@@ -120,9 +165,9 @@ pip install -r requirements.txt
 
 ---
 
-## 5. Configure environment variables
+## 5. Configure Environment Variables
 
-Create a `.env` file using the `.env.example` template.
+Create a `.env` file in the project root.
 
 Example:
 
@@ -138,7 +183,15 @@ ACCESS_TOKEN_EXPIRE_MINUTES=30
 
 ---
 
-## 6. Start the server
+## 6. Apply Database Migrations
+
+```bash
+alembic upgrade head
+```
+
+---
+
+## 7. Run the Application
 
 ```bash
 uvicorn main:app --reload
@@ -146,7 +199,7 @@ uvicorn main:app --reload
 
 ---
 
-# API Documentation
+# 📖 API Documentation
 
 Swagger UI
 
@@ -162,33 +215,79 @@ http://127.0.0.1:8000/openapi.json
 
 ---
 
-# Authentication Flow
+# 🔐 Authentication Flow
 
 1. Register a new user.
 2. Login using your username and password.
 3. Receive a JWT access token.
-4. Authorize in Swagger.
-5. Access protected endpoints.
+4. Click **Authorize** in Swagger.
+5. Paste the access token.
+6. Access protected endpoints.
+7. Users can only access their own job applications.
 
 ---
 
-# Available Endpoints
+# 📌 Available Endpoints
 
 ## Authentication
 
 - POST `/register`
 - POST `/login`
 
-## Jobs
+### Jobs
 
 - GET `/jobs`
 - GET `/jobs/{job_id}`
 - POST `/jobs`
 - PUT `/jobs/{job_id}`
+- PATCH `/jobs/{job_id}`
 - DELETE `/jobs/{job_id}`
+
+### System
+
+- GET `/`
+- GET `/about`
+- GET `/health`
 
 ---
 
-# Author
+# 🧪 Running Tests
 
-Developed by **Shravya**
+Run the automated test suite:
+
+```bash
+pytest -v
+```
+
+### Current Test Coverage
+
+- Home Endpoint
+- About Endpoint
+- User Registration
+- User Login
+- Create Job
+- Get Jobs
+- Patch Job
+- Delete Job
+- Unauthorized Access
+- Health Endpoint
+
+---
+
+# 🚀 Future Improvements
+
+- Refresh Token Support
+- Email Notifications
+- Resume Uploads
+- Company Search
+- Job Analytics Dashboard
+- Docker Support
+- CI/CD Pipeline
+
+---
+
+# 👩‍💻 Author
+
+**Shravya**
+
+Designed and developed a secure RESTful API for managing job applications using FastAPI, PostgreSQL, SQLAlchemy, JWT Authentication, Alembic, and Pytest.
