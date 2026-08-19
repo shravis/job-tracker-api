@@ -125,7 +125,7 @@ JobTrackerAPI/
 ## 1. Clone the repository
 
 ```bash
-git clone git clone https://github.com/YOUR_USERNAME/job-tracker-api.git
+git clone https://github.com/shravis/job-tracker-api.git
 
 cd job-tracker-api
 
