@@ -75,3 +75,15 @@ def client():
     app.dependency_overrides.clear()
     Base.metadata.drop_all(bind=engine)
     reset_limiter_state()
+
+
+@pytest.fixture(scope="function")
+def db_session(client):
+    """Raw DB session for tests that need to bypass the API/Pydantic
+    layer entirely (e.g. proving a DB-level CHECK constraint is
+    enforced, not just the Pydantic enum in front of it)."""
+    session = TestingSessionLocal()
+    try:
+        yield session
+    finally:
+        session.close()

@@ -1,4 +1,5 @@
 from sqlalchemy import (
+    CheckConstraint,
     Column,
     Integer,
     Text,
@@ -10,6 +11,20 @@ from sqlalchemy import (
 from sqlalchemy.orm import declarative_base, relationship
 
 Base = declarative_base()
+
+# Keep in sync with VALID_STATUSES in
+# alembic/versions/f9a0b1c2d3e4_jobs_status_check.py and
+# schemas.JobStatus. This is what the test suite's create_all()
+# schema enforces, mirroring the ck_jobs_status constraint that the
+# migration adds in real environments.
+VALID_JOB_STATUSES = (
+    "Applied",
+    "Interview",
+    "Offer",
+    "Accepted",
+    "Rejected",
+    "Withdrawn",
+)
 
 
 class User(Base):
@@ -39,6 +54,12 @@ class Job(Base):
         Index("idx_jobs_company", "company"),
         Index("idx_jobs_status", "status"),
         Index("idx_jobs_user_id", "user_id"),
+        CheckConstraint(
+            "status IN ({})".format(
+                ", ".join(f"'{s}'" for s in VALID_JOB_STATUSES)
+            ),
+            name="ck_jobs_status",
+        ),
     )
 
     id = Column(Integer, primary_key=True)
@@ -69,4 +90,3 @@ class Job(Base):
         "User",
         back_populates="jobs"
     )
-

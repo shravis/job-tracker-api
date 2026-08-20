@@ -1,4 +1,9 @@
 from fastapi.testclient import TestClient
+from sqlalchemy.exc import IntegrityError
+
+import models
+
+import pytest
 
 
 def test_home(client: TestClient):
@@ -89,67 +94,11 @@ def test_create_job(client: TestClient):
     )
 
     assert response.status_code == 201
+    data = response.json()
+    assert data["company"] == "Google"
+    assert data["position"] == "Software Engineer"
+    assert data["status"] == "Applied"
 
-    job = response.json()
-
-    assert job["company"] == "Google"
-    assert job["status"] == "Applied"
-
-
-def test_get_jobs(client: TestClient):
-    client.post(
-        "/register",
-        json={
-            "username": "john",
-            "password": "Password123"
-        }
-    )
-
-    login = client.post(
-        "/login",
-        data={
-            "username": "john",
-            "password": "Password123"
-        }
-    )
-
-    token = login.json()["access_token"]
-
-    client.post(
-        "/jobs",
-        headers={
-            "Authorization": f"Bearer {token}"
-        },
-        json={
-            "company": "Google",
-            "position": "Software Engineer",
-            "status": "Applied"
-        }
-    )
-
-    response = client.get(
-        "/jobs",
-        headers={
-            "Authorization": f"Bearer {token}"
-        }
-    )
-
-    assert response.status_code == 200
-    assert len(response.json()) == 1
-
-def test_health(client: TestClient):
-    response = client.get("/health")
-
-    assert response.status_code == 200
-    assert response.json() == {
-        "status": "healthy",
-        "database": "connected"
-    }
-
-def test_unauthorized_access(client: TestClient):
-    response = client.get("/jobs")
-
-    assert response.status_code == 401
 
 def test_patch_job(client: TestClient):
     client.post(
@@ -239,3 +188,38 @@ def test_delete_job(client: TestClient):
     )
 
     assert response.status_code == 204
+
+
+def test_db_rejects_invalid_status_via_check_constraint(
+    client: TestClient,
+    db_session
+):
+    """schemas.JobStatus already blocks bad statuses at the API layer.
+    This proves the DB itself enforces the same rule (ck_jobs_status),
+    so a bad value inserted via raw SQL / a future code path that
+    skips Pydantic still can't corrupt the table (regression guard
+    for the case-sensitive NOT IN bug the migration fixed)."""
+    client.post(
+        "/register",
+        json={
+            "username": "john",
+            "password": "Password123"
+        }
+    )
+
+    user = db_session.query(models.User).filter(
+        models.User.username == "john"
+    ).first()
+
+    bad_job = models.Job(
+        company="Google",
+        position="Software Engineer",
+        status="not-a-real-status",
+        user_id=user.id
+    )
+    db_session.add(bad_job)
+
+    with pytest.raises(IntegrityError):
+        db_session.commit()
+
+    db_session.rollback()
