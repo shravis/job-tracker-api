@@ -323,6 +323,7 @@ The test database name must contain `test`. The suite never runs `drop_all` agai
 - Delete Job
 - Unauthorized Access
 - Health Endpoint
+- Job Status DB-Level CHECK Constraint (ensures invalid status values are rejected even if the API/schema layer is bypassed)
 
 ---
 
