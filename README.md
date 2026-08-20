@@ -208,7 +208,9 @@ ALLOWED_ORIGINS=http://localhost:3000,http://127.0.0.1:3000
 TRUST_PROXY=false
 ```
 
-If the API sits behind a reverse proxy, set `TRUST_PROXY=true` so rate limiting uses `X-Forwarded-For`.
+If the API sits behind a reverse proxy, set `TRUST_PROXY=true` **and** start Uvicorn with `--forwarded-allow-ips` set to that proxy's address only. Leave `TRUST_PROXY=false` for local development.
+
+Rate limits are stored in the current process. Each extra Uvicorn worker has its own counter, so do not scale workers until you add a shared store.
 
 ---
 
@@ -227,8 +229,18 @@ alembic upgrade head
 ## 8. Run the Application
 
 ```bash
-uvicorn main:app --reload
+uvicorn main:app --reload --no-proxy-headers
 ```
+
+`--no-proxy-headers` stops Uvicorn from treating `X-Forwarded-For` as the client IP on localhost (which would bypass rate limiting).
+
+Behind a real proxy:
+
+```bash
+uvicorn main:app --forwarded-allow-ips=10.0.0.1
+```
+
+and set `TRUST_PROXY=true`.
 
 ---
 
@@ -291,11 +303,13 @@ http://127.0.0.1:8000/openapi.json
 Run the automated test suite:
 
 ```bash
-# Optional: point tests at your local test database
+# Required if DATABASE_URL points at a non-test database (the suite will refuse it).
 set TEST_DATABASE_URL=postgresql://jobtracker:your_password@localhost:5432/job_tracker_test
 
 pytest -v
 ```
+
+The test database name must contain `test`. The suite never runs `drop_all` against `job_tracker`.
 
 ### Current Test Coverage
 

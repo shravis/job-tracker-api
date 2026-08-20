@@ -13,6 +13,7 @@ from database import get_db
 load_dotenv()
 
 AUTH_HEADERS = {"WWW-Authenticate": "Bearer"}
+BCRYPT_MAX_PASSWORD_BYTES = 72
 
 
 def get_env_variable(name: str) -> str:
@@ -47,6 +48,10 @@ def _unauthorized(detail: str = "Invalid authentication credentials"):
 
 
 def hash_password(password: str) -> str:
+    if len(password.encode("utf-8")) > BCRYPT_MAX_PASSWORD_BYTES:
+        raise ValueError(
+            "Password cannot exceed 72 bytes when encoded as UTF-8"
+        )
     return bcrypt.hashpw(
         password.encode("utf-8"),
         bcrypt.gensalt()
@@ -57,6 +62,8 @@ def verify_password(
     plain_password: str,
     hashed_password: str
 ) -> bool:
+    if len(plain_password.encode("utf-8")) > BCRYPT_MAX_PASSWORD_BYTES:
+        return False
     try:
         return bcrypt.checkpw(
             plain_password.encode("utf-8"),

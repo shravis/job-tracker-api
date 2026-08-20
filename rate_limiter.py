@@ -10,17 +10,27 @@ MAX_TRACKED_KEYS = 10_000
 _buckets: dict[str, list[float]] = {}
 
 
+def reset_limiter_state() -> None:
+    _buckets.clear()
+
+
 def get_client_ip(request: Request) -> str:
     trust_proxy = getenv("TRUST_PROXY", "false").lower() in (
         "1",
         "true",
         "yes"
     )
+    forwarded = request.headers.get("x-forwarded-for")
 
-    if trust_proxy:
-        forwarded = request.headers.get("x-forwarded-for")
-        if forwarded:
-            return forwarded.split(",")[0].strip()
+    if trust_proxy and forwarded:
+        return forwarded.split(",")[0].strip()
+
+    # uvicorn --proxy-headers rewrites request.client.host from
+    # X-Forwarded-For when the TCP peer is 127.0.0.1. If we do not
+    # trust proxies, ignore that rewritten address so rotating headers
+    # cannot bypass the limit.
+    if not trust_proxy and forwarded:
+        return "untrusted-forwarded"
 
     if request.client is None:
         return "unknown"
@@ -66,11 +76,14 @@ def is_rate_limited(
     _buckets[key] = timestamps
 
     if len(timestamps) >= max_attempts:
+        oldest = timestamps[0]
+        retry_after = max(1, int(BLOCK_TIME - (current_time - oldest)))
         raise HTTPException(
             status_code=429,
             detail=detail or (
                 "Too many failed login attempts. Please try again in one minute."
-            )
+            ),
+            headers={"Retry-After": str(retry_after)}
         )
 
 

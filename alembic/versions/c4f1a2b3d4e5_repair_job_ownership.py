@@ -95,15 +95,15 @@ def upgrade() -> None:
             "jobs",
             sa.Column("user_id", sa.Integer(), nullable=True),
         )
-        bind.execute(text(
-            """
-            UPDATE jobs
-            SET user_id = (SELECT id FROM users ORDER BY id LIMIT 1)
-            WHERE user_id IS NULL
-              AND EXISTS (SELECT 1 FROM users)
-            """
-        ))
-        bind.execute(text("DELETE FROM jobs WHERE user_id IS NULL"))
+        orphan_count = bind.execute(
+            text("SELECT COUNT(*) FROM jobs WHERE user_id IS NULL")
+        ).scalar()
+        if orphan_count:
+            raise RuntimeError(
+                f"Refusing to continue: {orphan_count} job(s) have no user_id. "
+                "Assign each row a valid users.id, then re-run "
+                "`alembic upgrade head`. Jobs were not deleted."
+            )
         op.alter_column("jobs", "user_id", nullable=False)
 
         fks = {fk["name"] for fk in inspector.get_foreign_keys("jobs")}
@@ -125,15 +125,29 @@ def upgrade() -> None:
     if "idx_jobs_status" not in indexes:
         op.create_index("idx_jobs_status", "jobs", ["status"])
 
-    placeholders = ", ".join(f"'{value}'" for value in VALID_STATUSES)
-    bind.execute(text(
-        f"""
-        UPDATE jobs
-        SET status = 'Applied'
-        WHERE status IS NULL
-           OR status NOT IN ({placeholders})
-        """
-    ))
+    for canonical in VALID_STATUSES:
+        bind.execute(
+            text(
+                "UPDATE jobs SET status = :canonical "
+                "WHERE lower(status) = lower(:canonical)"
+            ),
+            {"canonical": canonical},
+        )
+
+    allowed = ", ".join(f"'{value}'" for value in VALID_STATUSES)
+    invalid = bind.execute(
+        text(
+            f"SELECT DISTINCT status FROM jobs "
+            f"WHERE status IS NULL OR status NOT IN ({allowed})"
+        )
+    ).fetchall()
+    if invalid:
+        values = ", ".join(repr(row[0]) for row in invalid)
+        raise RuntimeError(
+            "Refusing to rewrite unknown job status values: "
+            f"{values}. Update them to one of {VALID_STATUSES}, "
+            "then re-run `alembic upgrade head`."
+        )
 
 
 def downgrade() -> None:

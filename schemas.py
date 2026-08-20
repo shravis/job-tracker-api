@@ -12,16 +12,40 @@ class JobStatus(str, Enum):
     WITHDRAWN = "Withdrawn"
 
 
+def _strip_required(value: str) -> str:
+    if isinstance(value, str):
+        return value.strip()
+    return value
+
+
+def _strip_optional(value: str | None) -> str | None:
+    if value is None:
+        return None
+    if isinstance(value, str):
+        return value.strip()
+    return value
+
+
 class JobCreate(BaseModel):
     company: str = Field(min_length=1, max_length=200)
     position: str = Field(min_length=1, max_length=200)
     status: JobStatus
+
+    @field_validator("company", "position", mode="before")
+    @classmethod
+    def strip_job_text(cls, value: str) -> str:
+        return _strip_required(value)
 
 
 class JobUpdate(BaseModel):
     company: str | None = Field(default=None, min_length=1, max_length=200)
     position: str | None = Field(default=None, min_length=1, max_length=200)
     status: JobStatus | None = None
+
+    @field_validator("company", "position", mode="before")
+    @classmethod
+    def strip_optional_job_text(cls, value: str | None) -> str | None:
+        return _strip_optional(value)
 
 
 class JobResponse(JobCreate):
@@ -44,6 +68,11 @@ class UserCreate(BaseModel):
         min_length=8,
         max_length=72
     )
+
+    @field_validator("username", mode="before")
+    @classmethod
+    def strip_username(cls, value: str) -> str:
+        return _strip_required(value)
 
     @field_validator("password")
     @classmethod
