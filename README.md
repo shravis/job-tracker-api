@@ -83,7 +83,7 @@ A secure RESTful API for managing job applications, built using **FastAPI**, **P
 - Alembic
 - Pydantic
 - JWT (python-jose)
-- Passlib (bcrypt)
+- bcrypt
 - Pytest
 - python-dotenv
 - Uvicorn
@@ -165,25 +165,58 @@ pip install -r requirements.txt
 
 ---
 
-## 5. Configure Environment Variables
+## 5. Create the PostgreSQL database
 
-Create a `.env` file in the project root.
+Do not skip this step. Alembic cannot create the database itself.
 
-Example:
+```bash
+createdb job_tracker
+```
+
+Create a dedicated role instead of using the `postgres` superuser:
+
+```bash
+createuser jobtracker
+createdb -O jobtracker job_tracker
+```
+
+For tests:
+
+```bash
+createdb -O jobtracker job_tracker_test
+```
+
+---
+
+## 6. Configure Environment Variables
+
+Copy `.env.example` to `.env` and fill in your values.
 
 ```env
-DATABASE_URL=postgresql://postgres:your_password@localhost:5432/job_tracker
+DATABASE_URL=postgresql://jobtracker:your_password@localhost:5432/job_tracker
 
 SECRET_KEY=your_secret_key
 
 ALGORITHM=HS256
 
 ACCESS_TOKEN_EXPIRE_MINUTES=30
+
+REFRESH_TOKEN_EXPIRE_MINUTES=10080
+
+ALLOWED_ORIGINS=http://localhost:3000,http://127.0.0.1:3000
+
+TRUST_PROXY=false
 ```
+
+If the API sits behind a reverse proxy, set `TRUST_PROXY=true` so rate limiting uses `X-Forwarded-For`.
 
 ---
 
-## 6. Apply Database Migrations
+## 7. Apply Database Migrations
+
+Schema changes come **only** from Alembic (the app no longer calls `create_all` on startup).
+
+If you already have a `job_tracker` database from an older version, still run this. The repair migration adds `user_id`, indexes, and cleans invalid `status` values.
 
 ```bash
 alembic upgrade head
@@ -191,7 +224,7 @@ alembic upgrade head
 
 ---
 
-## 7. Run the Application
+## 8. Run the Application
 
 ```bash
 uvicorn main:app --reload
@@ -233,6 +266,8 @@ http://127.0.0.1:8000/openapi.json
 
 - POST `/register`
 - POST `/login`
+- POST `/refresh`
+- POST `/logout`
 
 ### Jobs
 
@@ -256,6 +291,9 @@ http://127.0.0.1:8000/openapi.json
 Run the automated test suite:
 
 ```bash
+# Optional: point tests at your local test database
+set TEST_DATABASE_URL=postgresql://jobtracker:your_password@localhost:5432/job_tracker_test
+
 pytest -v
 ```
 
@@ -276,7 +314,6 @@ pytest -v
 
 # 🚀 Future Improvements
 
-- Refresh Token Support
 - Email Notifications
 - Resume Uploads
 - Company Search

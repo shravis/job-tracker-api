@@ -1,6 +1,12 @@
-from fastapi import FastAPI, Depends, HTTPException, status, Query, Response
+import logging
+import os
+
+from fastapi import FastAPI, Depends, HTTPException, Query, Response
+from fastapi import status as http_status
+from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy import text
 
 import auth
 import models
@@ -8,7 +14,12 @@ import schemas
 
 from database import get_db
 from security import get_current_user
-from sqlalchemy import text
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s %(levelname)s %(name)s %(message)s"
+)
+logger = logging.getLogger("jobtracker")
 
 app = FastAPI(
     title="Job Tracker API",
@@ -16,7 +27,33 @@ app = FastAPI(
     version="1.0.0"
 )
 
+allowed_origins = [
+    origin.strip()
+    for origin in os.getenv("ALLOWED_ORIGINS", "*").split(",")
+    if origin.strip()
+]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=allowed_origins,
+    allow_credentials=False,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 app.include_router(auth.router)
+
+
+def _commit_or_500(db: Session, action: str):
+    try:
+        db.commit()
+    except SQLAlchemyError:
+        logger.exception("Database error during %s", action)
+        db.rollback()
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to {action}."
+        )
 
 
 @app.get("/")
@@ -26,22 +63,26 @@ def home():
 
 @app.get("/about")
 def about():
-    return {"developer": "Shravya"}
+    return {
+        "name": "Job Tracker API",
+        "version": app.version,
+        "author": "Shravya"
+    }
+
 
 @app.get("/health")
 def health(db: Session = Depends(get_db)):
     try:
         db.execute(text("SELECT 1"))
-
         return {
             "status": "healthy",
             "database": "connected"
         }
-
-    except Exception as e:
+    except Exception:
+        logger.exception("Health check failed")
         raise HTTPException(
             status_code=503,
-            detail=str(e)
+            detail="Database unavailable"
         )
 
 
@@ -82,11 +123,7 @@ def get_jobs(
                 status_code=400,
                 detail="Invalid sort field"
             )
-
-        query = query.order_by(
-            valid_sort_fields[sort]
-        )
-
+        query = query.order_by(valid_sort_fields[sort])
     else:
         query = query.order_by(models.Job.id)
 
@@ -119,7 +156,7 @@ def get_job(
 @app.post(
     "/jobs",
     response_model=schemas.JobResponse,
-    status_code=status.HTTP_201_CREATED
+    status_code=http_status.HTTP_201_CREATED
 )
 def create_job(
     job: schemas.JobCreate,
@@ -134,18 +171,8 @@ def create_job(
     )
 
     db.add(new_job)
-
-    try:
-        db.commit()
-        db.refresh(new_job)
-
-    except SQLAlchemyError:
-        db.rollback()
-        raise HTTPException(
-            status_code=500,
-            detail="Failed to create job."
-        )
-
+    _commit_or_500(db, "create job")
+    db.refresh(new_job)
     return new_job
 
 
@@ -174,18 +201,11 @@ def update_job(
     job.position = updated_job.position
     job.status = updated_job.status
 
-    try:
-        db.commit()
-        db.refresh(job)
-
-    except SQLAlchemyError:
-        db.rollback()
-        raise HTTPException(
-            status_code=500,
-            detail="Failed to update job."
-        )
-
+    _commit_or_500(db, "update job")
+    db.refresh(job)
     return job
+
+
 @app.patch(
     "/jobs/{job_id}",
     response_model=schemas.JobResponse
@@ -207,30 +227,25 @@ def patch_job(
             detail="Job not found"
         )
 
-    update_data = updated_job.model_dump(
-        exclude_unset=True
-    )
+    update_data = updated_job.model_dump(exclude_unset=True)
+
+    if not update_data:
+        raise HTTPException(
+            status_code=400,
+            detail="No fields to update"
+        )
 
     for key, value in update_data.items():
         setattr(job, key, value)
 
-    try:
-        db.commit()
-        db.refresh(job)
-
-    except SQLAlchemyError:
-        db.rollback()
-        raise HTTPException(
-            status_code=500,
-            detail="Failed to update job."
-        )
-
+    _commit_or_500(db, "update job")
+    db.refresh(job)
     return job
 
 
 @app.delete(
     "/jobs/{job_id}",
-    status_code=status.HTTP_204_NO_CONTENT
+    status_code=http_status.HTTP_204_NO_CONTENT
 )
 def delete_job(
     job_id: int,
@@ -249,17 +264,6 @@ def delete_job(
         )
 
     db.delete(job)
+    _commit_or_500(db, "delete job")
 
-    try:
-        db.commit()
-
-    except SQLAlchemyError:
-        db.rollback()
-        raise HTTPException(
-            status_code=500,
-            detail="Failed to delete job."
-        )
-
-    return Response(
-        status_code=status.HTTP_204_NO_CONTENT
-    )
+    return Response(status_code=http_status.HTTP_204_NO_CONTENT)

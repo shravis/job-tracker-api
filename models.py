@@ -8,7 +8,6 @@ from sqlalchemy import (
     func
 )
 from sqlalchemy.orm import declarative_base, relationship
-from database import engine
 
 Base = declarative_base()
 
@@ -19,6 +18,12 @@ class User(Base):
     id = Column(Integer, primary_key=True)
     username = Column(Text, unique=True, nullable=False)
     password = Column(Text, nullable=False)
+    token_version = Column(
+        Integer,
+        nullable=False,
+        default=0,
+        server_default="0"
+    )
 
     jobs = relationship(
         "Job",
@@ -33,6 +38,7 @@ class Job(Base):
     __table_args__ = (
         Index("idx_jobs_company", "company"),
         Index("idx_jobs_status", "status"),
+        Index("idx_jobs_user_id", "user_id"),
     )
 
     id = Column(Integer, primary_key=True)
@@ -64,5 +70,3 @@ class Job(Base):
         back_populates="jobs"
     )
 
-
-Base.metadata.create_all(bind=engine)

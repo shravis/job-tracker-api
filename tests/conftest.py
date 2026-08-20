@@ -5,8 +5,12 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import os
 
-os.environ["DATABASE_URL"] = (
-    "postgresql://postgres:Postgre%40123@localhost:5432/job_tracker_test"
+os.environ.setdefault(
+    "DATABASE_URL",
+    os.getenv(
+        "TEST_DATABASE_URL",
+        "postgresql://jobtracker:jobtracker@localhost:5432/job_tracker_test"
+    )
 )
 
 import pytest

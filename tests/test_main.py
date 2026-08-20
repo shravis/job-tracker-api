@@ -14,9 +14,10 @@ def test_about(client: TestClient):
     response = client.get("/about")
 
     assert response.status_code == 200
-    assert response.json() == {
-        "developer": "Shravya"
-    }
+    data = response.json()
+    assert data["name"] == "Job Tracker API"
+    assert data["author"] == "Shravya"
+    assert "version" in data
 
 
 def test_register_user(client: TestClient):
