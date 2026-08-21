@@ -13,7 +13,7 @@ def _database_name(url: str) -> str:
 
 
 def _is_test_database_url(url: str) -> bool:
-    return "test" in _database_name(url).lower()
+    return _database_name(url).lower().endswith("_test")
 
 
 DEFAULT_TEST_DATABASE_URL = (
@@ -30,7 +30,8 @@ if not _is_test_database_url(os.environ["DATABASE_URL"]):
     raise RuntimeError(
         "Refusing to run tests against a non-test database "
         f"({_database_name(os.environ['DATABASE_URL'])!r}). "
-        "Set TEST_DATABASE_URL to a database whose name contains 'test'."
+        "Set TEST_DATABASE_URL to a database whose name ends with '_test' "
+        "(for example job_tracker_test)."
     )
 
 import pytest

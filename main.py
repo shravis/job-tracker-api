@@ -44,6 +44,22 @@ app.add_middleware(
 app.include_router(auth.router)
 
 
+@app.on_event("startup")
+def warn_if_proxy_untrusted():
+    trust_proxy = os.getenv("TRUST_PROXY", "false").lower() in (
+        "1",
+        "true",
+        "yes"
+    )
+    if not trust_proxy:
+        logger.info(
+            "TRUST_PROXY is false. Use --no-proxy-headers locally. "
+            "Behind a reverse proxy, set TRUST_PROXY=true and "
+            "--forwarded-allow-ips to that proxy; otherwise every "
+            "client that sends X-Forwarded-For shares one rate-limit bucket."
+        )
+
+
 def _commit_or_500(db: Session, action: str):
     try:
         db.commit()

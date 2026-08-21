@@ -309,7 +309,7 @@ set TEST_DATABASE_URL=postgresql://jobtracker:your_password@localhost:5432/job_t
 pytest -v
 ```
 
-The test database name must contain `test`. The suite never runs `drop_all` against `job_tracker`.
+The test database name must end with `_test` (for example `job_tracker_test`). The suite never runs `drop_all` against `job_tracker`.
 
 ### Current Test Coverage
 
@@ -323,6 +323,8 @@ The test database name must contain `test`. The suite never runs `drop_all` agai
 - Delete Job
 - Unauthorized Access
 - Health Endpoint
+- Job ownership isolation
+- Database status CHECK constraint
 - Job Status DB-Level CHECK Constraint (ensures invalid status values are rejected even if the API/schema layer is bypassed)
 
 ---

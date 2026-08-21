@@ -1,5 +1,6 @@
 from time import time
 from os import getenv
+import logging
 from fastapi import HTTPException, Request
 
 MAX_FAILED_ATTEMPTS = 5
@@ -8,6 +9,8 @@ BLOCK_TIME = 60
 MAX_TRACKED_KEYS = 10_000
 
 _buckets: dict[str, list[float]] = {}
+_logged_untrusted_xff = False
+logger = logging.getLogger("jobtracker")
 
 
 def reset_limiter_state() -> None:
@@ -30,6 +33,16 @@ def get_client_ip(request: Request) -> str:
     # trust proxies, ignore that rewritten address so rotating headers
     # cannot bypass the limit.
     if not trust_proxy and forwarded:
+        global _logged_untrusted_xff
+        if not _logged_untrusted_xff:
+            logger.warning(
+                "X-Forwarded-For was present but TRUST_PROXY is false. "
+                "Those clients share one rate-limit bucket. Set "
+                "TRUST_PROXY=true and start Uvicorn with "
+                "--forwarded-allow-ips set to your proxy, or omit XFF "
+                "and use --no-proxy-headers for local development."
+            )
+            _logged_untrusted_xff = True
         return "untrusted-forwarded"
 
     if request.client is None:

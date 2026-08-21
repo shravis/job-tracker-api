@@ -95,14 +95,30 @@ def upgrade() -> None:
             "jobs",
             sa.Column("user_id", sa.Integer(), nullable=True),
         )
+        bind.execute(text(
+            """
+            UPDATE jobs
+            SET user_id = (SELECT id FROM users ORDER BY id LIMIT 1)
+            WHERE user_id IS NULL
+              AND EXISTS (SELECT 1 FROM users)
+            """
+        ))
         orphan_count = bind.execute(
             text("SELECT COUNT(*) FROM jobs WHERE user_id IS NULL")
         ).scalar()
         if orphan_count:
             raise RuntimeError(
-                f"Refusing to continue: {orphan_count} job(s) have no user_id. "
-                "Assign each row a valid users.id, then re-run "
-                "`alembic upgrade head`. Jobs were not deleted."
+                f"Refusing to continue: {orphan_count} job(s) have no user_id "
+                "and no user exists to assign them to. This transaction will "
+                "roll back, so the user_id column will not remain afterwards. "
+                "Create at least one user, then re-run `alembic upgrade head`. "
+                "If you must repair outside Alembic:\n"
+                "  ALTER TABLE jobs ADD COLUMN IF NOT EXISTS user_id INTEGER;\n"
+                "  UPDATE jobs SET user_id = "
+                "(SELECT id FROM users ORDER BY id LIMIT 1) "
+                "WHERE user_id IS NULL;\n"
+                "  ALTER TABLE jobs ALTER COLUMN user_id SET NOT NULL;\n"
+                "Jobs were not deleted."
             )
         op.alter_column("jobs", "user_id", nullable=False)
 
